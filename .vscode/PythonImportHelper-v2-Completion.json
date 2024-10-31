@@ -1,0 +1,115 @@
+[
+    {
+        "label": "cv2",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "cv2",
+        "description": "cv2",
+        "detail": "cv2",
+        "documentation": {}
+    },
+    {
+        "label": "numpy",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "numpy",
+        "description": "numpy",
+        "detail": "numpy",
+        "documentation": {}
+    },
+    {
+        "label": "tkinter",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "tkinter",
+        "description": "tkinter",
+        "detail": "tkinter",
+        "documentation": {}
+    },
+    {
+        "label": "ttk",
+        "importPath": "tkinter",
+        "description": "tkinter",
+        "isExtraImport": true,
+        "detail": "tkinter",
+        "documentation": {}
+    },
+    {
+        "label": "filedialog",
+        "importPath": "tkinter",
+        "description": "tkinter",
+        "isExtraImport": true,
+        "detail": "tkinter",
+        "documentation": {}
+    },
+    {
+        "label": "Image",
+        "importPath": "PIL",
+        "description": "PIL",
+        "isExtraImport": true,
+        "detail": "PIL",
+        "documentation": {}
+    },
+    {
+        "label": "ImageTk",
+        "importPath": "PIL",
+        "description": "PIL",
+        "isExtraImport": true,
+        "detail": "PIL",
+        "documentation": {}
+    },
+    {
+        "label": "turtle",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "turtle",
+        "description": "turtle",
+        "detail": "turtle",
+        "documentation": {}
+    },
+    {
+        "label": "math",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "math",
+        "description": "math",
+        "detail": "math",
+        "documentation": {}
+    },
+    {
+        "label": "os",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "os",
+        "description": "os",
+        "detail": "os",
+        "documentation": {}
+    },
+    {
+        "label": "ContourLevelAdjuster",
+        "kind": 6,
+        "importPath": "imageDrawer",
+        "description": "imageDrawer",
+        "peekOfCode": "class ContourLevelAdjuster:\n    def __init__(self, root):\n        self.root = root\n        self.root.title(\"Contour Level Adjuster\")\n        # Initialize image path\n        self.image_path = \"\"\n        self.low_threshold = 50\n        self.high_threshold = 150\n        self.contours = []\n        # Create a label to display the image",
+        "detail": "imageDrawer",
+        "documentation": {}
+    },
+    {
+        "label": "root",
+        "kind": 5,
+        "importPath": "imageDrawer",
+        "description": "imageDrawer",
+        "peekOfCode": "root = tk.Tk()\napp = ContourLevelAdjuster(root)\nroot.mainloop()",
+        "detail": "imageDrawer",
+        "documentation": {}
+    },
+    {
+        "label": "app",
+        "kind": 5,
+        "importPath": "imageDrawer",
+        "description": "imageDrawer",
+        "peekOfCode": "app = ContourLevelAdjuster(root)\nroot.mainloop()",
+        "detail": "imageDrawer",
+        "documentation": {}
+    }
+]
