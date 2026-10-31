@@ -6,6 +6,7 @@ from PIL import Image, ImageTk
 import turtle
 import math
 import os
+import time
 
 class ContourLevelAdjuster:
     def __init__(self, root):
@@ -44,18 +45,29 @@ class ContourLevelAdjuster:
         self.jump_entry.insert(0, "30")  # Default value
         self.jump_entry.grid(row=3, column=1, sticky='we', padx=5)
 
+        # Add slider for drawing speed (1 = slowest, 100 = fastest)
+        speed_label = tk.Label(self.root, text="Drawing Speed:")
+        speed_label.grid(row=4, column=0, sticky='e', padx=5)
+
+        self.speed_value_label = tk.Label(self.root, width=8, anchor='w')
+        self.speed_value_label.grid(row=4, column=2, sticky='w', padx=5)
+
+        self.speed_slider = ttk.Scale(self.root, from_=1, to=100, orient='horizontal', command=self.update_speed_label)
+        self.speed_slider.set(50)  # Default value
+        self.speed_slider.grid(row=4, column=1, sticky='we', padx=5)
+
         # Add buttons for selecting image, saving contours, drawing, and closing the app
         select_button = ttk.Button(self.root, text="Select Image", command=self.select_image)
-        select_button.grid(row=4, column=0, sticky='we', padx=5, pady=5)
+        select_button.grid(row=5, column=0, sticky='we', padx=5, pady=5)
 
         save_button = ttk.Button(self.root, text="Save Contours", command=self.save_contours)
-        save_button.grid(row=4, column=1, sticky='we', padx=5, pady=5)
+        save_button.grid(row=5, column=1, sticky='we', padx=5, pady=5)
 
         draw_button = ttk.Button(self.root, text="Draw", command=self.draw_contours)
-        draw_button.grid(row=4, column=2, sticky='we', padx=5, pady=5)
+        draw_button.grid(row=5, column=2, sticky='we', padx=5, pady=5)
 
         close_button = ttk.Button(self.root, text="Close", command=self.close_app)
-        close_button.grid(row=4, column=3, sticky='we', padx=5, pady=5)
+        close_button.grid(row=5, column=3, sticky='we', padx=5, pady=5)
 
         # Configure grid to make sliders and buttons expand
         self.root.grid_columnconfigure(1, weight=1)
@@ -95,6 +107,20 @@ class ContourLevelAdjuster:
 
         # Save detailed points (without contour approximation)
         
+    def get_draw_speed(self):
+        return round(self.speed_slider.get())
+
+    def get_draw_settings(self, speed):
+        # Turtle redraws the screen after every move, which is slow even at speed(0).
+        # Instead, redraw once every `points_per_frame` points (1 at speed 1, ~1000 at
+        # speed 100) and wait a little between points at the slow end.
+        points_per_frame = max(1, round(1000 ** ((speed - 1) / 99)))
+        delay = max(0, 20 - speed) * 0.003
+        return points_per_frame, delay
+
+    def update_speed_label(self, *args):
+        self.speed_value_label.config(text=str(self.get_draw_speed()))
+
     def update_High_thresholds(self, *args):
         self.high_threshold = self.high_slider.get()
         self.process_image(self.low_threshold, self.high_threshold)
@@ -120,12 +146,18 @@ class ContourLevelAdjuster:
                 detailed_points.append((x, y))  
 
         # Ensure the "contours" directory exists
-        contours_dir = os.path.join(os.path.dirname(__file__), "contours")
+        contours_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "contours")
         os.makedirs(contours_dir, exist_ok=True)
 
-        # Construct the file path
-        base_name = os.path.basename(self.image_path).split(".")[0]
-        file_path = os.path.join(contours_dir, f"{base_name}_detailed_contour.txt")
+        # Ask where to save, suggesting a name based on the image
+        base_name = os.path.splitext(os.path.basename(self.image_path))[0]
+        file_path = filedialog.asksaveasfilename(
+            initialdir=contours_dir,
+            initialfile=f"{base_name}_detailed_contour.txt",
+            defaultextension=".txt",
+            filetypes=[("Contour files", "*.txt"), ("All files", "*.*")])
+        if not file_path:
+            return
 
         # Save points to a file for use with Turtle
         with open(file_path, "w") as file:
@@ -134,15 +166,27 @@ class ContourLevelAdjuster:
         print("Contours saved successfully.")
 
     def draw_contours(self):
+        # Ask which contour file to draw
+        contours_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "contours")
+        file_path = filedialog.askopenfilename(
+            initialdir=contours_dir,
+            filetypes=[("Contour files", "*.txt"), ("All files", "*.*")])
+        if not file_path:
+            return
+
         # Load contour points
         detailed_points = []
         try:
-            with open("..\\contours\\" + self.image_path.split(".")[0] + "_detailed_contour.txt", "r") as file:
+            with open(file_path, "r") as file:
                 for line in file:
                     x, y = map(int, line.strip().split(','))
                     detailed_points.append((x, y))
-        except FileNotFoundError:
-            print("Contour file not found. Please save contours first.")
+        except (OSError, ValueError):
+            print("Could not read contour file.")
+            return
+
+        if not detailed_points:
+            print("Contour file is empty.")
             return
 
         # Calculate the center offset
@@ -161,36 +205,65 @@ class ContourLevelAdjuster:
             print("Invalid jump threshold value. Using default of 30.")
             distance_threshold = 10
 
-        # Reinitialize Turtle graphics
-        screen = turtle.Screen()
-        screen.setup(width=800, height=600)
-        screen.title("Contour Drawing")
+        # Draw in a child window of the app instead of a separate Turtle root,
+        # so closing it mid-drawing doesn't leave a second mainloop hanging
+        window = tk.Toplevel(self.root)
+        window.title("Contour Drawing")
+        canvas = tk.Canvas(window, width=800, height=600)
+        canvas.pack()
+        screen = turtle.TurtleScreen(canvas)
         screen.bgcolor("white")
 
-        pen = turtle.Turtle()
-        pen.speed(0)  
-        pen.penup()  
+        closed = False
 
-        # Move to the first point adjusted for centering
-        first_point = detailed_points[0]
-        pen.goto(first_point[0] - offset_x, -(first_point[1] - offset_y))
-        pen.pendown()
+        def on_close():
+            nonlocal closed
+            closed = True
+            window.destroy()
 
-        for i in range(1, len(detailed_points)):
-            x_prev, y_prev = detailed_points[i - 1]
-            x, y = detailed_points[i]
-            
-            distance = math.sqrt((x - x_prev) ** 2 + (y - y_prev) ** 2)
-            
-            if distance > distance_threshold:
-                pen.penup()
-            else:
-                pen.pendown()
-            
-            pen.goto(x - offset_x, -(y - offset_y))
+        window.protocol("WM_DELETE_WINDOW", on_close)
 
-        pen.hideturtle()
-        turtle.done()
+        # Screen updates are done manually below, controlled by the speed slider
+        screen.tracer(0)
+        pen = turtle.RawTurtle(screen)
+        pen.speed(0)
+        pen.penup()
+
+        try:
+            # Move to the first point adjusted for centering
+            first_point = detailed_points[0]
+            pen.goto(first_point[0] - offset_x, -(first_point[1] - offset_y))
+            pen.pendown()
+
+            for i in range(1, len(detailed_points)):
+                if closed:
+                    break
+
+                # Read the slider every point so speed changes apply while drawing
+                points_per_frame, delay = self.get_draw_settings(self.get_draw_speed())
+                if i % points_per_frame == 0:
+                    screen.update()
+                    if delay:
+                        time.sleep(delay)
+
+                x_prev, y_prev = detailed_points[i - 1]
+                x, y = detailed_points[i]
+
+                distance = math.sqrt((x - x_prev) ** 2 + (y - y_prev) ** 2)
+
+                if distance > distance_threshold:
+                    pen.penup()
+                else:
+                    pen.pendown()
+
+                pen.goto(x - offset_x, -(y - offset_y))
+
+            if not closed:
+                pen.hideturtle()
+                screen.update()
+        except (tk.TclError, turtle.Terminator):
+            # Window was closed while drawing
+            pass
 
 
     def close_app(self):
